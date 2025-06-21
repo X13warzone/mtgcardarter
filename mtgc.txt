@@ -1,0 +1,98 @@
+1 Tifa, Martial Artist (FIC) 6 *F*
+1 Adriana, Captain of the Guard (DMC) 139
+1 Aggressive Mammoth (M19) 302
+1 Agonasaur Rex (DFT) 343
+1 Anger (LTC) 210
+1 Annie Joins Up (POTJ) 191p
+1 Anzrag, the Quake-Mole (MKM) 356
+1 Aragorn, Hornburg Hero (LTC) 492
+1 Arcane Signet (SCD) 257
+1 Aurelia, the Law Above (PMKM) 188p
+1 Avatar of Slaughter (CMM) 206
+1 Bloodthirster (40K) 73
+1 Boros Charm (GTC) 148
+1 Boros Guildgate (CMR) 478
+1 Boros Signet (TDC) 314
+1 Bright-Palm, Soul Awakener (MOC) 134 *E*
+1 Cactusfolk Sureshot (OTJ) 199
+1 Caller of the Pack (C15) 34
+1 Canopy Vista (MKC) 252
+1 Cathars' Crusade (INR) 17
+1 Champion of Lambholt (SCD) 174
+1 Chromatic Lantern (GRN) 233
+1 Cinder Glade (LCC) 323
+1 City on Fire (SLD) 1803 *F*
+1 Clifftop Retreat (TDC) 351
+1 Command Tower (LCC) 325
+1 Conclave Sledge-Captain (MOC) 36
+1 Cultivate (DSC) 174
+1 Dolmen Gate (SLD) 1806 *F*
+1 Domri, Anarch of Bolas (BLC) 98
+1 Enduring Courage (DSK) 133
+1 Evolving Wilds (DRC) 153
+1 Exotic Orchard (DSC) 275
+1 Explore (LCC) 241
+1 Faeburrow Elder (TDC) 289
+1 Farseek (TDC) 255
+5 Forest (LCI) 402
+1 Garruk's Uprising (SCD) 185
+1 Ghalta and Mavren (MOM) 386 *F*
+1 Ghalta, Primal Hunger (JMP) 399
+1 Gruul Guildgate (CLU) 237
+1 Gruul Signet (CLU) 223
+1 Jungle Shrine (MKC) 268
+1 Karlach, Fury of Avernus (SLD) 1802
+1 Lavaspur Boots (OTJ) 243
+1 Leinore, Autumn Sovereign (MIC) 1
+1 Lightning, Army of One (FIN) 498
+1 Llanowar Elves (FDN) 227
+1 Loyal Guardian (CMM) 304
+1 Mind Stone (CLB) 325
+1 Mithril Coat (LTR) 245
+5 Mountain (TDM) 284
+1 Myriad Landscape (MKC) 276
+1 Ohran Frostfang (CMM) 309
+1 Overpowering Attack (ACR) 37
+1 Path of Ancestry (DRC) 166
+1 Path to Exile (ACR) 81
+4 Plains (PLST) WOE-268
+1 Quick-Draw Katana (FDN) 130
+1 Reliquary Tower (DSC) 295
+1 Rising of the Day (LTR) 145
+1 Roaming Throne (LCI) 344
+1 Rogue's Passage (MKC) 284
+1 Sakura-Tribe Elder (DSC) 194
+1 Scourge of the Throne (TDC) 230
+1 Scurry of Squirrels (BLC) 33
+1 Selesnya Guildgate (GRN) 256
+1 Selesnya Signet (TDC) 324
+1 Sephiroth, Fallen Hero (FIC) 92
+1 Sheltering Landscape (MH3) 227
+1 Shriekwood Devourer (DSC) 35
+1 Skyhunter Strike Force (ONC) 21
+1 Sol Ring (PIP) 239
+1 Solemn Simulacrum (DSC) 253
+1 Strionic Resonator (M14) 224
+1 Swiftfoot Boots (PIP) 242
+1 Sword of Wealth and Power (BIG) 26
+1 Temple of Abandon (M3C) 385
+1 Temple of Plenty (MKC) 304
+1 Temple of the False God (LCC) 359
+1 Temple of Triumph (PIP) 312
+1 Temur Battle Rage (CMM) 264
+1 Terramorphic Expanse (DSK) 269
+1 The Earth Crystal (FIN) 184 *F*
+1 Tifa Lockhart (FIN) 206
+1 Tifa's Limit Break (FIN) 207
+1 True Conviction (SLD) 1082
+1 Vivien's Stampede (NCC) 65
+1 Worldly Tutor (DMR) 185
+1 Zopandrel, Hunger Dominus (PONE) 195s *F*
+
+1 Austere Command (LCC) 126
+1 Blasphemous Act (SCD) 124
+1 Halana and Alena, Partners (FDN) 659
+1 Last Chance (DMR) 325
+1 Legion Loyalty (TDC) 122
+1 Ozolith, the Shattered Spire (MOM) 372
+1 Stump Stomp // Burnwillow Clearing (MH3) 259
