@@ -10,7 +10,7 @@ Notable variables/constants:
 
 - `PAGE_INCLUDE_EDGE_MARGIN`: Sets whether the printed sheet should include a width-ed margin. If set to true, then the resulting sheet will be A4 sized. If set to false, the resulting sheet will be slightly less than A4 sized, but will result in an A4 sized sheet if the printer requires a margin of some width.
 - `mtgc.txt`: The input file used to query Scryfall.
-
+***
 # Known Issues:
 - `mtgc.txt`: Scryfall query errors with:
   - Promo cards
