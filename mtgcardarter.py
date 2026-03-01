@@ -3,12 +3,20 @@
 
 Currently, it can handle text files in the format of:
 amount card_name (set_code) collector_num
+Which is the most common format, used for moxfield and other sites.
 
 with a newline separating each new card. Set and collector number are optional.
 """
 
+__author__ = "X13warzone"
+__version__ = "1.2.0"
+__maintainer__ = "X13warzone"
+# __email__ = "<EMAIL>"
+__status__ = "Development"
+
+import time
 from datetime import datetime
-from tkinter import Tk, ttk
+#from tkinter import Tk, ttk
 
 import ijson
 import json
@@ -19,12 +27,6 @@ import re
 import requests
 import urllib
 
-
-__author__ = "X13warzone"
-__version__ = "1.0.0"
-__maintainer__ = "X13warzone"
-# __email__ = "<EMAIL>"
-__status__ = "Development"
 
 BASE_URL = "https://api.scryfall.com"
 OUT_DIR = "mtgcardout"
@@ -57,6 +59,24 @@ def fetch_bulk():
     return None
 
 
+def query_cards(query_restrictions: str, out_file, page_count = 1):
+    url = f"{BASE_URL}/cards/search?page={page_count}&q={query_restrictions}+f%3Acommander&unique=cards"
+
+    with requests.get(url) as response:
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                print(f"Total cards: {data['total_cards']}")
+
+                for card in data["data"]:
+                    out_file.write(card['name'])
+                    out_file.write("\n")
+                if data["has_more"]:
+                    query_cards(query_restrictions, out_file, page_count + 1)
+        else:
+            print(f'Error could not query cards: {response.status_code}')
+
+
 def search_card(name, set_name=None):
     if set_name is not None:
         url = f"{BASE_URL}/cards/search?q={name}+e%3A{set_name}+unique%3Aprints"
@@ -79,7 +99,6 @@ def check_dir(dir_path):
 
 def save_image(img: Image, file_path=OUT_DIR, img_name=None):
     """
-
     :param img:
     :param file_path:
     :param img_name:
@@ -100,101 +119,6 @@ def save_image(img: Image, file_path=OUT_DIR, img_name=None):
         img.save(fp, "PNG")
 
 
-def parse_bulk(card_list):
-    bulk_data = fetch_bulk()
-    f = urllib.request.urlopen(bulk_data["data"][3]["download_uri"])
-    objects = ijson.items(f, "item")
-
-    cards = (o for o in objects if
-             (o["name"].lower() in [s["name"] for s in card_list])
-             and o["set"]
-             and o["lang"] == "en"
-             )
-
-    for card in cards:
-        target_path = f"{OUT_DIR}" + "\\" + get_valid_filename(card["name"])
-        if "image_uris" in card:
-            file_path = target_path + "\\" + {card["set"]} + "_" + {card["collector_number"]} + ".png"
-            save_image(card["image_uris"]["png"], file_path)
-
-
-def create_card(card_frame: str, card_art, card_name = "Nobody", card_cost = "{0}", card_set: str = "sld", card_artist: str="X13warzone", card_num = "1/500", card_layout: str="normal", card_power: str=None, card_toughness=None):
-    """
-    Creates a new card with the given card art, name, cost, P/T (IA), type, border, etc.
-    :param card_frame: A string out of a selection of options.
-    :param card_art: A Pillow Image object. The art should have the same ratio as a card (63 x 89), else it may be stretched/cropped.
-    :param card_name: A string representing the name of the card.
-    :param card_cost: A string representing the cost of the card, in the format of {n}{m}{p}. Each n, m, or p may be a number (for colorless), X, one of WUBRG with an optional p before it (for phyrexian mana), or two of WUBRG (for split mana).
-    :param card_layout: A string representing the layout of the card. Examples are: normal; transform; saga; adventure etc.
-    :param card_power: Strings representing the power/toughness of the card. Can also be set to *, or *+1 or similar.
-    :return: PIL.Image
-    """
-    img = Image.new("RGBA", CARD_SIZE_PX, (255, 255, 255, 0))
-
-    # For now, this is just the center. Todo: Add functionality for a translation shift
-    if card_art.size[0] / card_art.size[1] < CARD_SIZE_PX[0] / CARD_SIZE_PX[1]:
-        # Crop the top and bottom
-        temp_num = card_art.size[0] * CARD_SIZE_PX[1] // CARD_SIZE_PX[0]
-        cropped_art = card_art.crop((
-            0,
-            (card_art.size[1] - temp_num) // 2,
-            card_art.size[0],
-            (card_art.size[1] + temp_num) // 2
-        ))
-    else:
-        # Crop left and right
-        temp_num = card_art.size[1] * CARD_SIZE_PX[0] // CARD_SIZE_PX[1]
-        cropped_art = card_art.crop((
-            (card_art.size[0] - temp_num) // 2,
-            0,
-            (card_art.size[0] + temp_num) // 2,
-            card_art.size[1]
-        ))
-    cropped_art = cropped_art.resize(CARD_SIZE_PX)
-
-    match card_frame:
-        case "white creature":
-            new_frame = read_card("mtgframes/white creature frame.png")
-    stretched_frame = new_frame.resize(CARD_SIZE_PX)
-
-    stretched_art = card_art.resize(CARD_SIZE_PX)
-
-    img.paste(cropped_art, (0, 0))
-    img.paste(stretched_frame, (0, 0), mask=stretched_frame)
-
-    save_image(stretched_frame)
-
-    # Name of card
-    font = ImageFont.truetype("mtgfont/typeface-beleren-bold-master/Beleren2016-Bold.ttf", 30)
-    text = ImageDraw.Draw(img)
-    text.text((64, 64), card_name, font=font, fill=(0, 0, 0, 255))
-
-    
-
-    # Insert other stuff here. Final step is make the corners transparent again.
-    # Top side. For loop x then y means we do each column, going down, then go to the next col and go all the way down.
-    for x in range(stretched_art.size[0]):
-        for y in range(stretched_art.size[1]):
-            # If it's transparent, it should be put as transparent
-            # If it's not transparent, check if it's black. If it's black, break
-            # If it's not black, put as transparent
-            frame_px = stretched_frame.getpixel((x, y))
-            if frame_px[3] != 0:
-                if frame_px[0:3] == (0, 0, 0) and frame_px[3] == 255 and stretched_frame.getpixel((x, y + 2))[0:3] == (0, 0, 0):
-                    break
-            img.putpixel((x, y), (0, 0, 0, frame_px[3]))
-
-        # Bottom side
-        for y in range(stretched_art.size[1] - 1, -1, -1):
-            frame_px = stretched_frame.getpixel((x, y))
-            if frame_px[3] != 0:
-                if frame_px[0:3] == (0, 0, 0) and frame_px[3] == 255 and stretched_frame.getpixel((x, y - 2))[0:3] == (0, 0, 0):
-                    break
-            img.putpixel((x, y), (0, 0, 0, 0))
-
-    save_image(img)
-
-
 def read_cards_from_file(file_path):
     """
     Reads in card names from a valid text file, and saves their data in memory.
@@ -212,7 +136,7 @@ def read_cards_from_file(file_path):
         fl = f.read().splitlines()
         res = []
         for line in fl:
-            nd = re.split(r' \(|\)|\*F\*', line)
+            nd = re.split(r' |\*F\*', line)
             d = {}
             if nd[0].startswith("//"):
                 continue
@@ -220,29 +144,25 @@ def read_cards_from_file(file_path):
             for n in nd:
                 if n == "":
                     continue
-                if "name" in d:
-                    if "set" in d:
-                        d["collector_number"] = n.strip()
+                if n.isdecimal():
+                    if "amount" not in d:
+                        d["amount"] = int(n)
                     else:
-                        if len(n) > 3 and n.startswith(("p", "P")):
-                            d["promo"] = True
-                        d["set"] = n
+                        if "set" in d and "collector_number" not in d:
+                            d["collector_number"] = n
                 else:
-                    count = 0
-                    new_name = ""
-                    for i, ch in enumerate(n):
-                        if ch.isspace():
-                            new_name = n[i+1:len(n)]
-                            break
-                        elif ch.isdigit():
-                            count *= 10
-                            count += ord(ch) - ord('0')
+                    if "name" in d:
+                        if "set" in d:
+                            d["collector_number"] = n.strip()
                         else:
-                            count = 1
-                            break
-
-                    d["name"] = new_name
-                    d["amount"] = max(count, 1)
+                            if n.strip().startswith("("):
+                                d["set"] = n.strip(" ()")
+                            else:
+                                d["name"] += " " + n.strip()
+                    else:
+                        d["name"] = n
+            if "amount" not in d:
+                d["amount"] = 1
             res.append(d)
     return res
 
@@ -300,7 +220,7 @@ def save_to_page(imgs):
     :param imgs: An array of Pillow Images.
     :return: void
     """
-    print(len(imgs))
+    print(f"Saving: {len(imgs)} images received.")
 
     if PAGE_INCLUDE_EDGE_MARGIN:
         w = round(A4_SIZE_MM[0] * _px_per_mm)
@@ -369,10 +289,14 @@ def save_to_page(imgs):
     # If we have "leftover" cards that don't fill up a page, we should save what we have
     if temp_across != 0 or temp_down != 0:
         file_path = OUT_DIR + "\\" + f"print_sheet{sheet_count}.png"
+        while os.path.isfile(file_path):
+            sheet_count += 1
+            file_path = OUT_DIR + "\\" + f"print_sheet{sheet_count}.png"
         if not os.path.isfile(file_path):
             final_image.save(file_path, "PNG")
 
 
+## Reads in a list of card arrays of the format [{"name": "", "set": "", "data": "", "collector_number": ""}, {}, {}]
 def queue_cards_to_save(cards):
     for card in cards:
         newc = None
@@ -397,9 +321,11 @@ def queue_cards_to_save(cards):
                     break
                 else:
                     print(f"Couldn't find a strange card: {c}")
+        time.sleep(0.05)
     save_to_page([url_to_image(u) for u in image_uris] + read_cards_from_folder(IN_DIR))
 
 
+"""
 def tk_trial():
     root = Tk()
     frm = ttk.Frame(root, padding=10)
@@ -408,37 +334,30 @@ def tk_trial():
     ttk.Label(frm, text="Hello world!").grid(column=0, row=0)
     ttk.Button(frm, text="Quit", command=root.destroy).grid(column=1, row=0)
     root.mainloop()
-
+"""
 
 start_time = datetime.now()
 print(f'Starting at {start_time}')
 # =====================================
 # Main
 # =====================================
-"""
-Editable list! Can handle card names, flavor names (alt prints),
-sets, collector numbers
-"""
 my_cards = read_cards_from_file("mtgc.txt")
-"""my_cards = [
-    {"name": "underworld breach", "set": "spg"},
-    {"name": "esper sentinel"},
-    {"name": "chatterfang"},
-    {"name": "volcanic island"},
-    {"name": "sink into stup"},
-    {"name": "etali, primal conq"},
-    {"name": "arcee"}
-]"""
+
+# Search based on oracle text/restrictions. Comment/Uncomment based on usage.
+# Change this `search_query` line by copying the scryfall link for everything after `search?q=`
+#search_query = "o%3A%22token%22+o%3A%22artifact%22+c%3C%3Dtemur+legal%3Acommander"
+#out_file = open(f"{OUT_DIR}/out_file.txt", "a")
+#query_cards(search_query, out_file)
 
 
-# =====================================
-# End of main
-# =====================================
 check_dir(OUT_DIR)
 image_uris = []
 
 queue_cards_to_save(my_cards)
 
+# =====================================
+# End of main
+# =====================================
 #tk_trial()
 
 #new_art = read_card("mtgframes/1732383168025_1732383168026.png")

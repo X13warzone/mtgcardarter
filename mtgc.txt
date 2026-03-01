@@ -1,9 +1,7 @@
-1 Verdant Catacombs
-1 Scalding Tarn
-1 Arid Mesa
-1 Wooded Foothills
-1 Marsh Flats
-1 Underworld Breach
-1 Deadpool
-1 Deadly Rollick
-1 Saw in half
+1 City of Traitors (EXO) 143
+1 Crystal Vein (CMA) 246
+1 Joshua Rosfield (PF25) 11
+1 Mana Confluence (SLD) 1012a
+1 Talon Gates of Madara (M3C) 134
+1 Thousand-Year Elixir (PLST) LRW-263
+1 spawn of thraxes
