@@ -13,7 +13,4 @@ Notable variables/constants:
 ***
 # Known Issues:
 - `mtgc.txt`: Scryfall query errors with:
-  - Promo cards
-  - The List cards
-  - Any cards with a letter in its collector number on Scryfall
   - Possibly some dual-faced or special cards. These have to be handled on a case-by-case basis, so if you find any issues with a card with a valid name, set and collector number, let me know.
