@@ -16,7 +16,7 @@ __status__ = "Development"
 
 import time
 from datetime import datetime
-#from tkinter import Tk, ttk
+import tkinter as tk
 
 import ijson
 import json
@@ -28,21 +28,21 @@ import requests
 import urllib
 
 
-BASE_URL = "https://api.scryfall.com"
-OUT_DIR = "mtgcardout"
-IN_DIR = "mtgcardin"
+BASE_URL: str = "https://api.scryfall.com"
+OUT_DIR: str = "mtgcardout"
+IN_DIR: str = "mtgcardin"
 A4_SIZE_MM: tuple[int, int] = (210, 297)
 CARD_SIZE_MM: tuple[int, int] = (63, 89)
 CARD_SIZE_PX: tuple[int, int] = (745, 1040)
-PAGE_TOP_MARGIN_MM = 5
-PAGE_LEFT_MARGIN_MM = 5
-PAGE_CARD_BETWEEN_MARGIN_MM = 1.5
-PAGE_INCLUDE_EDGE_MARGIN = False
+PAGE_TOP_MARGIN_MM: float = 5
+PAGE_LEFT_MARGIN_MM: float = 5
+PAGE_CARD_BETWEEN_MARGIN_MM: float = 1.5
+PAGE_INCLUDE_EDGE_MARGIN: bool = False
 
 _px_per_mm: float = CARD_SIZE_PX[0] / CARD_SIZE_MM[0]
 
 
-def get_valid_filename(s: str):
+def get_valid_filename(s: str) -> str:
     s = str(s).strip().replace(" ", "_")
     return re.sub(r"(?u)[^-\w.]", '', s)
 
@@ -77,7 +77,9 @@ def query_cards(query_restrictions: str, out_file, page_count = 1):
             print(f'Error could not query cards: {response.status_code}')
 
 
-def search_card(name, set_name=None):
+def search_card(name: str, set_name=None):
+    if name is None:
+        return None
     if set_name is not None:
         url = f"{BASE_URL}/cards/search?q={name}+e%3A{set_name}+unique%3Aprints"
     else:
@@ -119,6 +121,43 @@ def save_image(img: Image, file_path=OUT_DIR, img_name=None):
         img.save(fp, "PNG")
 
 
+def _read_card_from_string(card_info: str):
+    nd = card_info.split()
+    d = {}
+
+    for n in nd:
+        if n == "":
+            continue
+        if n.isdecimal():
+            if "amount" not in d and "name" not in d:
+                d["amount"] = int(n)
+            else:
+                if "set" in d and "collector_number" not in d:
+                    d["collector_number"] = n
+        else:
+            if "name" in d:
+                if "set" in d:
+                    d["collector_number"] = n.strip()
+                else:
+                    if n.strip().startswith("("):
+                        d["set"] = n.strip(" ()")
+                    else:
+                        d["name"] += " " + n.strip()
+            else:
+                d["name"] = n
+    if "amount" not in d:
+        d["amount"] = 1
+    return d
+
+
+def read_cards_from_string(card_list: str):
+    res = []
+    for c in card_list.split("\n"):
+        res.append(_read_card_from_string(c))
+    print(res)
+    return res
+
+
 def read_cards_from_file(file_path):
     """
     Reads in card names from a valid text file, and saves their data in memory.
@@ -136,34 +175,7 @@ def read_cards_from_file(file_path):
         fl = f.read().splitlines()
         res = []
         for line in fl:
-            nd = re.split(r' |\*F\*', line)
-            d = {}
-            if nd[0].startswith("//"):
-                continue
-
-            for n in nd:
-                if n == "":
-                    continue
-                if n.isdecimal():
-                    if "amount" not in d:
-                        d["amount"] = int(n)
-                    else:
-                        if "set" in d and "collector_number" not in d:
-                            d["collector_number"] = n
-                else:
-                    if "name" in d:
-                        if "set" in d:
-                            d["collector_number"] = n.strip()
-                        else:
-                            if n.strip().startswith("("):
-                                d["set"] = n.strip(" ()")
-                            else:
-                                d["name"] += " " + n.strip()
-                    else:
-                        d["name"] = n
-            if "amount" not in d:
-                d["amount"] = 1
-            res.append(d)
+            res.append(_read_card_from_string(line))
     return res
 
 
@@ -296,14 +308,15 @@ def save_to_page(imgs):
             final_image.save(file_path, "PNG")
 
 
-## Reads in a list of card arrays of the format [{"name": "", "set": "", "data": "", "collector_number": ""}, {}, {}]
 def queue_cards_to_save(cards):
+    """
+    Reads in a list of card arrays of the format [{"name": "", "set": "", "data": "", "collector_number": ""}, {}, {}]
+    :param cards:
+    :return:
+    """
+    image_uris = []
     for card in cards:
-        newc = None
-        if "set" in card:
-            newc = search_card(card["name"], card["set"])
-        else:
-            newc = search_card(card["name"])
+        newc = search_card(card.get("name", None), card.get("set", None))
         if newc is not None:
             for c in newc["data"]:
                 if "collector_number" in card and card["collector_number"] != c["collector_number"]:
@@ -325,24 +338,56 @@ def queue_cards_to_save(cards):
     save_to_page([url_to_image(u) for u in image_uris] + read_cards_from_folder(IN_DIR))
 
 
-"""
 def tk_trial():
-    root = Tk()
-    frm = ttk.Frame(root, padding=10)
-    frm.grid()
-    ImageTk.PhotoImage()
-    ttk.Label(frm, text="Hello world!").grid(column=0, row=0)
-    ttk.Button(frm, text="Quit", command=root.destroy).grid(column=1, row=0)
+    def close_window():
+        root.destroy()
+
+    def submit_decklist():
+        after_read_list = decklist.get("1.0", "end")
+        tk_cards = read_cards_from_string(after_read_list)
+        queue_cards_to_save(tk_cards)
+
+    root = tk.Tk()
+
+    root.title("MTG Card Arter")
+    root.configure(background="white")
+    root.minsize(300, 250)
+    root.maxsize(600, 600)
+    root.geometry("300x300+100+100")
+
+    tk.Label(root, text="MTG Card Proxy Sheet Maker.").pack()
+
+    decklist = tk.Text(root, height=10, width=40)
+    decklist.pack()
+
+    submit_button = tk.Button(
+        root,
+        text = "Submit Decklist",
+        command=submit_decklist,
+        background="white",
+        foreground="black",
+        font=("Arial", 16),
+    )
+    submit_button.pack()
+
+    exit_button = tk.Button(
+        root,
+        text="Quit",
+        command=close_window,
+        background="white",
+        foreground="black",
+        font=("Arial", 12),
+    )
+    exit_button.pack()
+
     root.mainloop()
-"""
+
 
 start_time = datetime.now()
 print(f'Starting at {start_time}')
 # =====================================
 # Main
 # =====================================
-my_cards = read_cards_from_file("mtgc.txt")
-
 # Search based on oracle text/restrictions. Comment/Uncomment based on usage.
 # Change this `search_query` line by copying the scryfall link for everything after `search?q=`
 #search_query = "o%3A%22token%22+o%3A%22artifact%22+c%3C%3Dtemur+legal%3Acommander"
@@ -351,17 +396,23 @@ my_cards = read_cards_from_file("mtgc.txt")
 
 
 check_dir(OUT_DIR)
-image_uris = []
 
-queue_cards_to_save(my_cards)
+#my_cards = read_cards_from_file("mtgc.txt")
+#queue_cards_to_save(my_cards)
 
 # =====================================
 # End of main
 # =====================================
-#tk_trial()
+tk_trial()
 
 #new_art = read_card("mtgframes/1732383168025_1732383168026.png")
 #create_card("white creature", new_art)
 
 end_time = datetime.now()
 print(f'Ending at {end_time}\nTime taken: {end_time - start_time}')
+
+"""
+spawn of thraxes
+1 mana confluence (sld)
+2 mountain
+"""
