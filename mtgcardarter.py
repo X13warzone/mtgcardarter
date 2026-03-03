@@ -122,6 +122,8 @@ def save_image(img: Image, file_path=OUT_DIR, img_name=None):
 
 
 def _read_card_from_string(card_info: str):
+    if card_info is None:
+        return None
     nd = card_info.split()
     d = {}
 
@@ -153,8 +155,11 @@ def _read_card_from_string(card_info: str):
 def read_cards_from_string(card_list: str):
     res = []
     for c in card_list.split("\n"):
-        res.append(_read_card_from_string(c))
-    print(res)
+        c = c.strip()
+        if c:
+            print(f"i: {c}")
+            res.append(_read_card_from_string(c))
+    #print(res)
     return res
 
 
@@ -338,6 +343,20 @@ def queue_cards_to_save(cards):
     save_to_page([url_to_image(u) for u in image_uris] + read_cards_from_folder(IN_DIR))
 
 
+def check_card_list(cards) -> bool:
+    """
+    Checks a list of pre-formatted cards for validity.
+    Returns true if all cards searched had at least one positive result.
+    Returns false if one or more cards searched had a negative result.
+    :param cards: [{"amount": 0, "name": "", "set": "", "collector_number": ""}, {}, {}]
+    :return: bool
+    """
+    for c in cards:
+        if search_card(c.get("name", None), c.get("set", None)) is None:
+            return False
+    return True
+
+
 def tk_trial():
     def close_window():
         root.destroy()
@@ -347,28 +366,59 @@ def tk_trial():
         tk_cards = read_cards_from_string(after_read_list)
         queue_cards_to_save(tk_cards)
 
+    def check_decklist(result_label: tk.Label = None):
+        after_read_list = decklist.get("1.0", "end")
+        tk_cards = read_cards_from_string(after_read_list)
+        if check_card_list(tk_cards) and result_label is not None:
+            result_label.config(text="Decklist valid!", foreground="green")
+            submit_button.config(foreground="green")
+        else:
+            result_label.config(text="Decklist invalid!", foreground="red")
+            submit_button.config(foreground="red")
+
     root = tk.Tk()
 
     root.title("MTG Card Arter")
     root.configure(background="white")
     root.minsize(300, 250)
     root.maxsize(600, 600)
-    root.geometry("300x300+100+100")
+    root.geometry("400x400+200+200")
 
-    tk.Label(root, text="MTG Card Proxy Sheet Maker.").pack()
+    heading = tk.Label(root, text="MTG Card Proxy Sheet Maker.")
 
-    decklist = tk.Text(root, height=10, width=40)
-    decklist.pack()
+    decklist_frame = tk.Frame(root, borderwidth=4, relief="groove")
+
+    decklist = tk.Text(decklist_frame, height=10, width=40)
+    # Example text
+    decklist.insert(tk.END, "Spawn of Thraxes\n3 Mountain (TDM)\n1 mana confluence (sld)")
 
     submit_button = tk.Button(
-        root,
+        decklist_frame,
         text = "Submit Decklist",
         command=submit_decklist,
+        background="white",
+        foreground="red",
+        font=("Arial", 16),
+    )
+    check_button = tk.Button(
+        decklist_frame,
+        text = "Check Decklist",
+        command=lambda:check_decklist(check_result_label),
         background="white",
         foreground="black",
         font=("Arial", 16),
     )
-    submit_button.pack()
+    check_result_label = tk.Label(
+        decklist_frame,
+        foreground="black",
+        background="white"
+    )
+
+    decklist.grid(column=1, row=1, columnspan=2)
+    submit_button.grid(column=1, row=2)
+    check_button.grid(column=2, row=2)
+    check_result_label.grid(column=1, row=0)
+
 
     exit_button = tk.Button(
         root,
@@ -378,7 +428,10 @@ def tk_trial():
         foreground="black",
         font=("Arial", 12),
     )
-    exit_button.pack()
+
+    heading.grid(column=0, row=0)
+    decklist_frame.grid(column=0, row=1)
+    exit_button.grid(column=0, row=3)
 
     root.mainloop()
 
@@ -393,7 +446,6 @@ print(f'Starting at {start_time}')
 #search_query = "o%3A%22token%22+o%3A%22artifact%22+c%3C%3Dtemur+legal%3Acommander"
 #out_file = open(f"{OUT_DIR}/out_file.txt", "a")
 #query_cards(search_query, out_file)
-
 
 check_dir(OUT_DIR)
 
