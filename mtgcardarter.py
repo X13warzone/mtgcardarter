@@ -17,6 +17,7 @@ __status__ = "Development"
 import time
 from datetime import datetime
 import tkinter as tk
+from tkinter import ttk
 
 import ijson
 import json
@@ -77,20 +78,23 @@ def query_cards(query_restrictions: str, out_file, page_count = 1):
             print(f'Error could not query cards: {response.status_code}')
 
 
-def search_card(name: str, set_name=None):
-    if name is None:
-        return None
+def search_card(name: str, set_name=None, collector_num: str = None):
+    time.sleep(0.1)
+    url = f"{BASE_URL}/cards/search?q="
+    if name is not None:
+        url += f"{name}+"
     if set_name is not None:
-        url = f"{BASE_URL}/cards/search?q={name}+e%3A{set_name}+unique%3Aprints"
-    else:
-        url = f"{BASE_URL}/cards/search?q={name}+unique%3Aprints"
+        url += f"e%3A{set_name}+"
+    if collector_num is not None:
+        url += f"cn%3A{collector_num}+"
+    url.strip("+")
 
     with requests.get(url) as response:
         if response.status_code == 200:
             data = response.json()
             return data
         else:
-            print(f'Error could not search card {name}, {set_name}: {response.status_code}')
+            print(f'Error could not search card [{name} ({set_name})]: {response.status_code}')
     return None
 
 
@@ -144,7 +148,8 @@ def _read_card_from_string(card_info: str):
                     if n.strip().startswith("("):
                         d["set"] = n.strip(" ()")
                     else:
-                        d["name"] += " " + n.strip()
+                        if not n.strip().startswith("*"):
+                            d["name"] += " " + n.strip()
             else:
                 d["name"] = n
     if "amount" not in d:
@@ -152,14 +157,16 @@ def _read_card_from_string(card_info: str):
     return d
 
 
-def read_cards_from_string(card_list: str):
+def read_cards_from_string(card_list: str, progress_bar: ttk.Progressbar = None):
     res = []
-    for c in card_list.split("\n"):
+    cl = card_list.split("\n")
+    n = len(cl)
+    for i, c in enumerate(cl):
         c = c.strip()
         if c:
-            print(f"i: {c}")
             res.append(_read_card_from_string(c))
-    #print(res)
+        if progress_bar is not None:
+            progress_bar.step(amount=i / 2 / n * 100.0)
     return res
 
 
@@ -339,21 +346,29 @@ def queue_cards_to_save(cards):
                     break
                 else:
                     print(f"Couldn't find a strange card: {c}")
-        time.sleep(0.05)
     save_to_page([url_to_image(u) for u in image_uris] + read_cards_from_folder(IN_DIR))
 
 
-def check_card_list(cards) -> bool:
+def check_card_list(cards: list, progress_val: ttk.Progressbar = None) -> bool:
     """
     Checks a list of pre-formatted cards for validity.
     Returns true if all cards searched had at least one positive result.
     Returns false if one or more cards searched had a negative result.
     :param cards: [{"amount": 0, "name": "", "set": "", "collector_number": ""}, {}, {}]
+    :param progress_val: ttk.Progressbar
     :return: bool
     """
-    for c in cards:
-        if search_card(c.get("name", None), c.get("set", None)) is None:
+    n = len(cards)
+    for i, c in enumerate(cards):
+        if search_card(c.get("name", None), c.get("set", None), c.get("collector_num", None)) is None:
+            if progress_val is not None:
+                progress_val.step(99.9)
             return False
+
+        if progress_val is not None:
+            progress_val.step((n + i) / 2 / n * 100.0)
+    if progress_val is not None:
+        progress_val.step(99.9)
     return True
 
 
@@ -364,12 +379,14 @@ def tk_trial():
     def submit_decklist():
         after_read_list = decklist.get("1.0", "end")
         tk_cards = read_cards_from_string(after_read_list)
+        if check_card_list(tk_cards, decklist_progress_bar):
+            check_result_label.config(text="Decklist valid!", foreground="green")
         queue_cards_to_save(tk_cards)
 
     def check_decklist(result_label: tk.Label = None):
         after_read_list = decklist.get("1.0", "end")
         tk_cards = read_cards_from_string(after_read_list)
-        if check_card_list(tk_cards) and result_label is not None:
+        if check_card_list(tk_cards, decklist_progress_bar) and result_label is not None:
             result_label.config(text="Decklist valid!", foreground="green")
             submit_button.config(foreground="green")
         else:
@@ -390,7 +407,7 @@ def tk_trial():
 
     decklist = tk.Text(decklist_frame, height=10, width=40)
     # Example text
-    decklist.insert(tk.END, "Spawn of Thraxes\n3 Mountain (TDM)\n1 mana confluence (sld)")
+    decklist.insert(tk.END, "Spawn of Thraxes\n3 Forest (TDM)\n1 mana confluence (sld)")
 
     submit_button = tk.Button(
         decklist_frame,
@@ -400,25 +417,26 @@ def tk_trial():
         foreground="red",
         font=("Arial", 16),
     )
-    check_button = tk.Button(
-        decklist_frame,
-        text = "Check Decklist",
-        command=lambda:check_decklist(check_result_label),
-        background="white",
-        foreground="black",
-        font=("Arial", 16),
-    )
     check_result_label = tk.Label(
         decklist_frame,
         foreground="black",
         background="white"
     )
+    decklist_progress_val = tk.IntVar(value=0)
 
-    decklist.grid(column=1, row=1, columnspan=2)
+    decklist_progress_bar = ttk.Progressbar(
+        decklist_frame,
+        orient="horizontal",
+        #variable=decklist_progress_val,
+        mode="determinate",
+        length=200,
+        maximum=100.0
+    )
+
+    decklist.grid(column=1, row=1, columnspan=3)
     submit_button.grid(column=1, row=2)
-    check_button.grid(column=2, row=2)
     check_result_label.grid(column=1, row=0)
-
+    decklist_progress_bar.grid(column=1, row=3, columnspan=3)
 
     exit_button = tk.Button(
         root,
@@ -462,9 +480,3 @@ tk_trial()
 
 end_time = datetime.now()
 print(f'Ending at {end_time}\nTime taken: {end_time - start_time}')
-
-"""
-spawn of thraxes
-1 mana confluence (sld)
-2 mountain
-"""
