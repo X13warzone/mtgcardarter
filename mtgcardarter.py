@@ -48,16 +48,28 @@ def get_valid_filename(s: str) -> str:
     return re.sub(r"(?u)[^-\w.]", '', s)
 
 
-def fetch_bulk():
+def fetch_bulk(bulk_type: str=None):
     url = f'{BASE_URL}/bulk-data'
 
     with requests.get(url) as response:
         if response.status_code == 200:
             data = response.json()
-            return data
+            if bulk_type is None:
+                return data
+            match bulk_type:
+                case "unique_artwork":
+                    for i in data["data"]:
+                        if i["type"] == "unique_artwork":
+                            return i
+                case _:
+                    return data
         else:
             print(f'Error could not fetch bulk: {response.status_code}')
     return None
+
+
+def search_bulk(name: str, set_name=None, collector_num=None):
+    pass
 
 
 def query_cards(query_restrictions: str, out_file, page_count = 1):
@@ -78,23 +90,27 @@ def query_cards(query_restrictions: str, out_file, page_count = 1):
             print(f'Error could not query cards: {response.status_code}')
 
 
-def search_card(name: str, set_name=None, collector_num: str = None):
-    time.sleep(0.1)
+def search_card(name: str, set_name: str =None, collector_num: str = None):
+    time.sleep(0.6)
+
     url = f"{BASE_URL}/cards/search?q="
     if name is not None:
         url += f"{name}+"
     if set_name is not None:
-        url += f"e%3A{set_name}+"
+        url += f"set%3A{set_name}+"
     if collector_num is not None:
         url += f"cn%3A{collector_num}+"
-    url.strip("+")
+    url = url.strip("+")
 
-    with requests.get(url) as response:
+    print(url)
+
+    with requests.get(url, headers={"User-Agent": "MtGCardArter/1.1", "Accept": "*/*"}) as response:
         if response.status_code == 200:
             data = response.json()
             return data
         else:
-            print(f'Error could not search card [{name} ({set_name})]: {response.status_code}')
+            print(f'Error could not search card [({name}) ({set_name}) ({collector_num})]: {response.status_code}')
+            return None
     return None
 
 
@@ -130,12 +146,15 @@ def _read_card_from_string(card_info: str):
         return None
     nd = card_info.split()
     d = {}
+    # Used to track if a card is double-sided. The back face name will be removed when parsing to Scryfall.
+    mdfc = False
 
     for n in nd:
         if n == "":
             continue
+        n = n.removesuffix("*F*")  # Remove foiling
         if n.isdecimal():
-            if "amount" not in d and "name" not in d:
+            if "amount" not in d and "name" not in d:  # Before the name => number of copies
                 d["amount"] = int(n)
             else:
                 if "set" in d and "collector_number" not in d:
@@ -147,13 +166,16 @@ def _read_card_from_string(card_info: str):
                 else:
                     if n.strip().startswith("("):
                         d["set"] = n.strip(" ()")
+                    elif n.strip().startswith("/"):
+                        mdfc = True
                     else:
-                        if not n.strip().startswith("*"):
-                            d["name"] += " " + n.strip()
+                        if not mdfc:
+                            d["name"] += "-" + n.strip()
             else:
                 d["name"] = n
     if "amount" not in d:
         d["amount"] = 1
+    d["name"] = ("".join([char for char in d["name"] if char not in ",.'"])).lower()
     return d
 
 
@@ -166,7 +188,7 @@ def read_cards_from_string(card_list: str, progress_bar: ttk.Progressbar = None)
         if c:
             res.append(_read_card_from_string(c))
         if progress_bar is not None:
-            progress_bar.step(amount=i / 2 / n * 100.0)
+            progress_bar.step(amount=(((i / 2.0) / n) * 100.0))
     return res
 
 
@@ -230,7 +252,7 @@ def url_to_image(url):
     :return: Image
     """
     try:
-        img = Image.open(requests.get(url, stream=True).raw)
+        img = Image.open(requests.get(url, headers={"User-Agent": "MtGCardArter/1.2", "Accept":"*/*"}, stream=True).raw)
         return img
     except Exception as e:
         print(f'Error loading image: {url}\nException: {e}')
@@ -328,7 +350,7 @@ def queue_cards_to_save(cards):
     """
     image_uris = []
     for card in cards:
-        newc = search_card(card.get("name", None), card.get("set", None))
+        newc = search_card(card.get("name", None), card.get("set", None), card.get("collector_number", None))
         if newc is not None:
             for c in newc["data"]:
                 if "collector_number" in card and card["collector_number"] != c["collector_number"]:
@@ -407,7 +429,13 @@ def tk_trial():
 
     decklist = tk.Text(decklist_frame, height=10, width=40)
     # Example text
-    decklist.insert(tk.END, "Spawn of Thraxes\n3 Forest (TDM)\n1 mana confluence (sld)")
+
+    with open("mtgc.txt", "r") as f:
+        fl = f.read().splitlines()
+        for line in fl:
+            decklist.insert(tk.END, f"{line}\n")
+
+    #decklist.insert(tk.END, "Spawn of Thraxes\n3 Forest (TDM)\n1 mana confluence (sld)")
 
     submit_button = tk.Button(
         decklist_frame,
