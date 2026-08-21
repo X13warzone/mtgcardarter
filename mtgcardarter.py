@@ -7,13 +7,7 @@ Which is the most common format, used for moxfield and other sites.
 
 with a newline separating each new card. Set and collector number are optional.
 """
-
-__author__ = "X13warzone"
-__version__ = "1.2.0"
-__maintainer__ = "X13warzone"
-# __email__ = "<EMAIL>"
-__status__ = "Development"
-
+import unicodedata
 import time
 from datetime import datetime
 import tkinter as tk
@@ -29,17 +23,33 @@ import requests
 import urllib
 
 
-BASE_URL: str = "https://api.scryfall.com"
+__name__ = "MtGCardArter"
+__author__ = "X13warzone"
+__version__ = "1.3.1"
+__maintainer__ = "X13warzone"
+# __email__ = "<EMAIL>"
+__status__ = "Maintenance"
+
+
+"""
+Can change these
+"""
 OUT_DIR: str = "mtgcardout"
 IN_DIR: str = "mtgcardin"
-A4_SIZE_MM: tuple[int, int] = (210, 297)
-CARD_SIZE_MM: tuple[int, int] = (63, 89)
-CARD_SIZE_PX: tuple[int, int] = (745, 1040)
+
 PAGE_TOP_MARGIN_MM: float = 5
 PAGE_LEFT_MARGIN_MM: float = 5
 PAGE_CARD_BETWEEN_MARGIN_MM: float = 1.5
 PAGE_INCLUDE_EDGE_MARGIN: bool = False
 
+
+"""
+DO NOT CHANGE THESE
+"""
+BASE_URL: str = "https://api.scryfall.com"
+A4_SIZE_MM: tuple[int, int] = (210, 297)
+CARD_SIZE_MM: tuple[int, int] = (63, 89)
+CARD_SIZE_PX: tuple[int, int] = (745, 1040)
 _px_per_mm: float = CARD_SIZE_PX[0] / CARD_SIZE_MM[0]
 
 
@@ -48,34 +58,49 @@ def get_valid_filename(s: str) -> str:
     return re.sub(r"(?u)[^-\w.]", '', s)
 
 
-def fetch_bulk(bulk_type: str=None):
+def scryfall_request(url: str):
+    """
+    Does 1 Scryfall fetch request. Automatically includes required headers.
+    :param url:
+    :return:
+    """
+    with requests.get(url, headers={"User-Agent": f"{__name__}/{__version__}", "Accept": "*/*"}) as response:
+        return response
+
+
+def fetch_bulk():
+    """
+    Fetch bulk.
+    :return: Bulk data as json.
+    """
     url = f'{BASE_URL}/bulk-data'
 
-    with requests.get(url) as response:
+    with scryfall_request(url) as response:
         if response.status_code == 200:
             data = response.json()
-            if bulk_type is None:
-                return data
-            match bulk_type:
-                case "unique_artwork":
-                    for i in data["data"]:
-                        if i["type"] == "unique_artwork":
-                            return i
-                case _:
-                    return data
+            return data
         else:
             print(f'Error could not fetch bulk: {response.status_code}')
     return None
 
 
-def search_bulk(name: str, set_name=None, collector_num=None):
+def search_bulk(card_name: str, set_name=None, collector_num=None):
+    pass
+
+
+def save_bulk(bulk_data: dict):
+    """
+    Save bulk.
+    :param bulk_data: Dictionary/json format of bulk data.
+    :return:
+    """
     pass
 
 
 def query_cards(query_restrictions: str, out_file, page_count = 1):
     url = f"{BASE_URL}/cards/search?page={page_count}&q={query_restrictions}+f%3Acommander&unique=cards"
 
-    with requests.get(url) as response:
+    with scryfall_request(url) as response:
         if response.status_code == 200:
             data = response.json()
             if data:
@@ -91,6 +116,7 @@ def query_cards(query_restrictions: str, out_file, page_count = 1):
 
 
 def search_card(name: str, set_name: str =None, collector_num: str = None):
+    # Scryfall API restriction. DO NOT go lower than 0.5 seconds
     time.sleep(0.6)
 
     url = f"{BASE_URL}/cards/search?q="
@@ -102,9 +128,7 @@ def search_card(name: str, set_name: str =None, collector_num: str = None):
         url += f"cn%3A{collector_num}+"
     url = url.strip("+")
 
-    print(url)
-
-    with requests.get(url, headers={"User-Agent": "MtGCardArter/1.1", "Accept": "*/*"}) as response:
+    with scryfall_request(url) as response:
         if response.status_code == 200:
             data = response.json()
             return data
@@ -115,6 +139,12 @@ def search_card(name: str, set_name: str =None, collector_num: str = None):
 
 
 def check_dir(dir_path):
+    """
+    Checks if a folder, directory or path exists. Creates a directory if it doesn't already exist.
+    Use before saving any created files to ensure the save location is valid.
+    :param dir_path: Filepath to the directory to check.
+    :return: None
+    """
     if not os.path.isdir(dir_path):
         os.makedirs(dir_path)
 
@@ -141,41 +171,66 @@ def save_image(img: Image, file_path=OUT_DIR, img_name=None):
         img.save(fp, "PNG")
 
 
-def _read_card_from_string(card_info: str):
+def read_card_from_string(card_info: str):
+    """
+    Parses a single line of a Moxfield-like string into card name, set, and collector number (if applicable).
+    :param card_info: A single line of a Magic the Gathering card in Moxfield format.
+    :return: dict() with keys ["amount", "name", "set", "collector_number"]
+    """
     if card_info is None:
         return None
-    nd = card_info.split()
+
+    # Remove foiling
+    nd = card_info.removesuffix("*F*")
+    nd = nd.split()
     d = {}
-    # Used to track if a card is double-sided. The back face name will be removed when parsing to Scryfall.
+    # Used to track if a card is double-sided. The back face name will be removed before parsing to Scryfall.
+    # Note: Although the term "mdfc" is used here, "mdfc" within this function will refer to any double-sided card,
+    # even if it's not actually an MDFC. This means transforming cards, battles, etc. are included as well.
     mdfc = False
 
-    for n in nd:
-        if n == "":
-            continue
-        n = n.removesuffix("*F*")  # Remove foiling
-        if n.isdecimal():
-            if "amount" not in d and "name" not in d:  # Before the name => number of copies
-                d["amount"] = int(n)
-            else:
-                if "set" in d and "collector_number" not in d:
-                    d["collector_number"] = n
+    mdfc_pattern = r"(\d*) ?(.+) ?\/ ?(.+) ?(\([A-Z0-9]+\)) ?(\d*)"
+    base_pattern = r"(\d*) ?(.+) ?(\([A-Z0-9]+\)) ?(\d*)"
+
+    m = re.match(mdfc_pattern, card_info)
+    if m:
+        m = re.split(mdfc_pattern, card_info)
+        mdfc = True
+    else:
+        m = re.match(base_pattern, card_info)
+        if m:
+            m = re.split(base_pattern, card_info)
         else:
-            if "name" in d:
-                if "set" in d:
-                    d["collector_number"] = n.strip()
-                else:
-                    if n.strip().startswith("("):
-                        d["set"] = n.strip(" ()")
-                    elif n.strip().startswith("/"):
-                        mdfc = True
-                    else:
-                        if not mdfc:
-                            d["name"] += "-" + n.strip()
-            else:
-                d["name"] = n
-    if "amount" not in d:
-        d["amount"] = 1
-    d["name"] = ("".join([char for char in d["name"] if char not in ",.'"])).lower()
+            print(f"Could not read card from string: {card_info=}!")
+            return None
+
+    for group in m:
+        # If empty
+        if not group:
+            continue
+
+        group = group.strip()
+        group = unicodedata.normalize("NFKD", group)
+
+        if "amount" not in d:
+            if group.isnumeric():
+                d["amount"] = int(group)
+                continue
+        if "name" not in d:
+            d["name"] = group
+            continue
+        if mdfc:
+            # MDFC or special case. Ignore second string
+            mdfc = False
+            continue
+        if "set" not in d:
+            d["set"] = group.strip(" ()")
+            continue
+        if "collector_number" not in d:
+            d["collector_number"] = group
+            continue
+        print(f"Weird value in read_card_from_string: {group=}")
+    print(d)
     return d
 
 
@@ -186,7 +241,7 @@ def read_cards_from_string(card_list: str, progress_bar: ttk.Progressbar = None)
     for i, c in enumerate(cl):
         c = c.strip()
         if c:
-            res.append(_read_card_from_string(c))
+            res.append(read_card_from_string(c))
         if progress_bar is not None:
             progress_bar.step(amount=(((i / 2.0) / n) * 100.0))
     return res
@@ -209,7 +264,7 @@ def read_cards_from_file(file_path):
         fl = f.read().splitlines()
         res = []
         for line in fl:
-            res.append(_read_card_from_string(line))
+            res.append(read_card_from_string(line))
     return res
 
 
@@ -430,12 +485,10 @@ def tk_trial():
     decklist = tk.Text(decklist_frame, height=10, width=40)
     # Example text
 
-    with open("mtgc.txt", "r") as f:
+    with open("mtgc.txt", "r", encoding="utf-8") as f:
         fl = f.read().splitlines()
         for line in fl:
             decklist.insert(tk.END, f"{line}\n")
-
-    #decklist.insert(tk.END, "Spawn of Thraxes\n3 Forest (TDM)\n1 mana confluence (sld)")
 
     submit_button = tk.Button(
         decklist_frame,
