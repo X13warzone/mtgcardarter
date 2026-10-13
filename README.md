@@ -1,8 +1,9 @@
 # MTG Card Arter
 An applet for making printable sheets for proxying Magic the Gathering cards.
 
-Still a WIP, with quite a few bugs and issues to iron out.
-Currently works with printing out A4 sheets with/without a margin, and handles file input and Scryfall querying.
+Still a WIP, and may have bugs or issues. If you find any, please let me know in the Issues tab.
+
+Currently works with printing out A4 sheets with/without a margin, and handles Moxfield format decklist input and automatic Scryfall querying.
 
 Note: This applet completely ignores foils, since you can't print foiling onto basic printing paper. The program still works if the imported cards are marked as foil (such as with \*F\* like Moxfield), it will simply ignore the \*F\* part.
 
