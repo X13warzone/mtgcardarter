@@ -7,6 +7,8 @@ Which is the most common format, used for moxfield and other sites.
 
 with a newline separating each new card. Set and collector number are optional.
 """
+from io import BytesIO
+
 import unicodedata
 import time
 from datetime import datetime
@@ -58,13 +60,14 @@ def get_valid_filename(s: str) -> str:
     return re.sub(r"(?u)[^-\w.]", '', s)
 
 
-def scryfall_request(url: str):
+def scryfall_request(url: str, stream: bool=False):
     """
     Does 1 Scryfall fetch request. Automatically includes required headers.
-    :param url:
+    :param url: str representing full url to search (including the base).
+    :param stream: Optional param
     :return:
     """
-    with requests.get(url, headers={"User-Agent": f"{__name__}/{__version__}", "Accept": "*/*"}) as response:
+    with requests.get(url, headers={"User-Agent": f"{__name__}/{__version__}", "Accept": "*/*"}, stream=stream) as response:
         return response
 
 
@@ -189,8 +192,8 @@ def read_card_from_string(card_info: str):
     # even if it's not actually an MDFC. This means transforming cards, battles, etc. are included as well.
     mdfc = False
 
-    mdfc_pattern = r"(\d*) ?(.+) ?\/ ?(.+) ?(\([A-Z0-9]+\)) ?(\d*)"
-    base_pattern = r"(\d*) ?(.+) ?(\([A-Z0-9]+\)) ?(\d*)"
+    mdfc_pattern = r"(\d*) ?([^\(]+) ?\/ ?(.+) ?(\([A-z0-9]+\)) ?(\d*)"
+    base_pattern = r"(\d*) ?([^\(]+) ?(\([A-Z0-9]+\))? ?(\d*)"
 
     m = re.match(mdfc_pattern, card_info)
     if m:
@@ -229,42 +232,35 @@ def read_card_from_string(card_info: str):
         if "collector_number" not in d:
             d["collector_number"] = group
             continue
-        print(f"Weird value in read_card_from_string: {group=}")
-    print(d)
+        print(f"Weird value in read_card_from_string: {card_info=} {group=}")
     return d
 
 
 def read_cards_from_string(card_list: str, progress_bar: ttk.Progressbar = None):
-    res = []
-    cl = card_list.split("\n")
-    n = len(cl)
-    for i, c in enumerate(cl):
-        c = c.strip()
-        if c:
-            res.append(read_card_from_string(c))
-        if progress_bar is not None:
-            progress_bar.step(amount=(((i / 2.0) / n) * 100.0))
-    return res
-
-
-def read_cards_from_file(file_path):
     """
-    Reads in card names from a valid text file, and saves their data in memory.
-    A valid text file should be in the format of:
+    Parses a string of cards into distinct card dictionaries.
+    A valid card should be in the format of:
 
     - Each unique card is separated by a newline
 
     - AMOUNT CARD_NAME (SET_CODE) COLLECTOR_NUMBER
 
     Where (SET_CODE) and COLLECTOR_NUMBER are optional. If
-    :param file_path: String representing the path to the text file.
+    :param card_list: string representing a card. Different cards should be delimited by \n.
+    :param progress_bar: (DEPRECATED) ttk.Progressbar to use to display progress bar
     :return: list[dict[str, str]]
     """
-    with open(file_path, "r") as f:
-        fl = f.read().splitlines()
-        res = []
-        for line in fl:
-            res.append(read_card_from_string(line))
+    res = []
+    cl = card_list.split("\n")
+    n = len(cl)
+    for i, c in enumerate(cl):
+        c = c.strip()
+        if c:
+            r = read_card_from_string(c)
+            if r:
+                res.append(r)
+        if progress_bar is not None:
+            progress_bar.step(amount=(((i / 2.0) / n) * 100.0))
     return res
 
 
@@ -307,7 +303,7 @@ def url_to_image(url):
     :return: Image
     """
     try:
-        img = Image.open(requests.get(url, headers={"User-Agent": "MtGCardArter/1.2", "Accept":"*/*"}, stream=True).raw)
+        img = Image.open(BytesIO(scryfall_request(url).content))
         return img
     except Exception as e:
         print(f'Error loading image: {url}\nException: {e}')
@@ -460,7 +456,7 @@ def tk_trial():
             check_result_label.config(text="Decklist valid!", foreground="green")
         queue_cards_to_save(tk_cards)
 
-    def check_decklist(result_label: tk.Label = None):
+    """def check_decklist(result_label: tk.Label = None):
         after_read_list = decklist.get("1.0", "end")
         tk_cards = read_cards_from_string(after_read_list)
         if check_card_list(tk_cards, decklist_progress_bar) and result_label is not None:
@@ -468,7 +464,7 @@ def tk_trial():
             submit_button.config(foreground="green")
         else:
             result_label.config(text="Decklist invalid!", foreground="red")
-            submit_button.config(foreground="red")
+            submit_button.config(foreground="red")"""
 
     root = tk.Tk()
 
