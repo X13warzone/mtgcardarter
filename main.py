@@ -42,8 +42,10 @@ IN_DIR: str = "mtgcardin"
 PAGE_TOP_MARGIN_MM: float = 5
 PAGE_LEFT_MARGIN_MM: float = 5
 PAGE_CARD_BETWEEN_MARGIN_MM: float = 1.5
-PAGE_INCLUDE_EDGE_MARGIN: bool = False
 
+
+PAGE_INCLUDE_EDGE_MARGIN: bool = False
+""" Whether the printed page should include a margin around the edge. """
 
 """
 DO NOT CHANGE THESE
@@ -184,7 +186,7 @@ def read_card_from_string(card_info: str):
         return None
 
     # Remove foiling
-    nd = card_info.removesuffix("*F*")
+    nd = card_info.removesuffix(" *F*")
     nd = nd.split()
     d = {}
     # Used to track if a card is double-sided. The back face name will be removed before parsing to Scryfall.
