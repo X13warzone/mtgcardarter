@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Python Applet</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: .5rem; font-size: .9rem; }
+    .card img { max-width: 100%; display: block; margin-bottom: .5rem; }
+    .error { color: #b00020; }
+      textarea { display: block; width: 100%; box-sizing: border-box; margin: .75rem 0;
+           font: inherit; padding: .5rem; resize: vertical; }
+  </style>
+</head>
+<body>
+  <h1>My Python Applet</h1>
+  <p id="status">Loading Python runtime…</p>
+
+  <input type="file" id="imgInput" accept="image/*" multiple>
+  <textarea id="textInput" rows="8" placeholder="Enter your text (new lines are kept)"></textarea>
+  <button id="run" disabled>Run</button>
+  <button id="zipBtn" style="display:none">Download all (zip)</button>
+
+  <div id="results"></div>
+
+  <script>
+      async function main() {
+  const status = document.getElementById("status");
+  let pyodide, process;
+  try {
+    if (typeof loadPyodide === "undefined") throw new Error("Pyodide script did not load (check network / ad blocker)");
+    if (typeof JSZip === "undefined") throw new Error("JSZip script did not load");
+
+    pyodide = await loadPyodide();
+    await pyodide.loadPackage(["pillow", "numpy", "requests"]);
+
+
+    const resp = await fetch("applet.py");
+    if (!resp.ok) throw new Error("Could not load applet.py (HTTP " + resp.status + "). Are you serving the folder over http?");
+    pyodide.runPython(await resp.text());
+
+    process = pyodide.globals.get("process");
+    if (!process) throw new Error("applet.py must define process(image_bytes, text)");
+  } catch (e) {
+    status.textContent = "Setup failed: " + e.message;
+    status.style.color = "#b00020";
+    console.error(e);
+    return;
+  }
+
+  const runBtn = document.getElementById("run");
+  const zipBtn = document.getElementById("zipBtn");
+  const results = document.getElementById("results");
+  let outputs = [];
+
+  status.textContent = "Ready.";
+  runBtn.disabled = false;
+
+    runBtn.onclick = async () => {
+      const files = [...document.getElementById("imgInput").files];
+      const text = document.getElementById("textInput").value;
+
+      // Clean up previous run
+      results.querySelectorAll("img").forEach(i => URL.revokeObjectURL(i.src));
+      results.innerHTML = "";
+      outputs = [];
+      zipBtn.style.display = "none";
+      runBtn.disabled = true;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        status.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}`;
+        await new Promise(r => setTimeout(r, 0));   // let the page repaint
+
+        const card = document.createElement("div");
+        card.className = "card";
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const result = process(bytes, text);
+          const out = result.toJs();
+          result.destroy?.();
+
+          const outName = file.name.replace(/\.[^.]+$/, "") + "_result.png";
+          outputs.push({ name: outName, bytes: out });
+
+          const url = URL.createObjectURL(new Blob([out], { type: "image/png" }));
+          card.innerHTML = `<img src="${url}" alt=""><a href="${url}" download="${outName}">Download ${outName}</a>`;
+        } catch (e) {
+          card.innerHTML = `<span class="error">${file.name}: ${e}</span>`;
+        }
+        results.appendChild(card);
+      }
+
+      status.textContent = `Done: ${outputs.length} of ${files.length} processed.`;
+      runBtn.disabled = false;
+      if (outputs.length > 1) zipBtn.style.display = "inline";
+    };
+
+    zipBtn.onclick = async () => {
+      const zip = new JSZip();
+      const used = new Set();
+      for (const { name, bytes } of outputs) {
+        let n = name, k = 1;
+        while (used.has(n)) n = name.replace(/(\.[^.]+)$/, `_${k++}$1`);   // avoid duplicate filenames
+        used.add(n);
+        zip.file(n, bytes);
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "results.zip";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+  }
+  main();
+  </script>
+</body>
+</html>
