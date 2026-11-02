@@ -16,8 +16,14 @@ Notable variables/constants (if you want to change any):
 - `OUT_DIR`: The folder to output images to.
 - `IN_DIR`: If you have any custom images you want to use (i.e. custom cards, or non MTG cards like a floating mana tracker), put them in this folder.
 ***
-## Known Issues:
-- Empty
+# Issues
+To report a bug or issue:
+1. Open a new Issue on GitHub
+2. Provide an impact/severity score. (1: minor visual or performance speed impacts, to 5: fundamental issues with the program running successfully)
+3. Provide the OS version, and Python version.
+4. Provide the steps to recreate.
+5. Provide the expected result, and what the actual result is.
+***
 ## To do:
 - Check promo cards
 - Check the list cards
